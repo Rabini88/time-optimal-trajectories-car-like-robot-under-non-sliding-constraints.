@@ -1,6 +1,9 @@
 # Generated data (large, reproducible)
 data/
 
+# Per-trial batch plots (reproducible, ~1 MB each)
+results/batch/**/trial_*.png
+
 # Reference papers (local only)
 references/
 
