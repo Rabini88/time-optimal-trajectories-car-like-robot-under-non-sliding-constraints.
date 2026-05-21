@@ -1,0 +1,17 @@
+# Generated data (large, reproducible)
+data/
+
+# Reference papers (local only)
+references/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE settings
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
