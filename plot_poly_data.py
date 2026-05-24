@@ -208,18 +208,18 @@ def plot_all(data_path,
         y_rear_p = X_poly[1, :] - L * np.sin(X_poly[2, :])
         fig, ax = plt.subplots(figsize=(6, 5))
         ax.plot(x_rear_r, y_rear_r, color=blue,  linewidth=lw, label=f"exact ($T$={T_ref:.3f} sec)")
-        ax.plot(x_rear_p, y_rear_p, color=green, linewidth=lw, linestyle="--", label=f"approximation ($T$={T_poly:.3f} sec)")
+        ax.plot(x_rear_p, y_rear_p, color=green, linewidth=lw, linestyle="--", label=f"approximate ($T$={T_poly:.3f} sec)")
         ax.plot(x_rear_r[-1], y_rear_r[-1], "go", markersize=8)
         ax.plot(x_rear_r[0],  y_rear_r[0],  "rx", markersize=10, markeredgewidth=2)
         ax.text(x_rear_r[-1], y_rear_r[-1] - 0.05, "start",  ha="center", va="top", fontsize=13)
         ax.text(x_rear_r[0],  y_rear_r[0]  - 0.05, "target", ha="center", va="top", fontsize=13)
         arrow_len = 0.15
-        for idx, color in [(-1, "g"), (0, "r")]:
+        for idx in [-1, 0]:
             ax.annotate("",
                 xy=(x_rear_r[idx] + arrow_len * np.cos(X_ref[2, idx]),
                     y_rear_r[idx] + arrow_len * np.sin(X_ref[2, idx])),
                 xytext=(x_rear_r[idx], y_rear_r[idx]),
-                arrowprops=dict(arrowstyle="-|>", color=color, lw=1.5))
+                arrowprops=dict(arrowstyle="-|>", color="black", lw=1.5))
         ax.set_xlabel("X [m]")
         ax.set_ylabel("Y [m]")
         # ax.set_title("Rear Axle Midpoint Trajectory")
