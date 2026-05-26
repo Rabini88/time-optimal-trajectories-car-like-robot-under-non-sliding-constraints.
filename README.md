@@ -31,7 +31,7 @@ The car is modeled as a rigid body with:
 
 ### Pseudo-code: $\mathcal{FW}$ Approximation Algorithm
 
-**Input:** Current speed $\nu$, current steering angle $\phi$, physical parameters $m, L, f_{max}$, control limits $a_{max}, b_{max}$, Number of approximation vertices $N$.
+**Input:** Current speed $\nu$ and steering angle $\phi$, physical parameters $m,L,f_{max}$, control limits $a_{max},b_{max}$, number of approximation vertices $N$.
 
 */* Identify candidate boundary points */*
 
@@ -44,41 +44,38 @@ The car is modeled as a rigid body with:
 
 */* Compute extrema and ellipse intersections */*
 
-4. Set discriminant $\Delta = 0$ for $\mathcal{FW}$ force equation and add ellipse extrema to $P_{\text{candidate}}$
-5. Add control limit corners $(\pm a_{max}, \pm b_{max})$ to $P_{\text{candidate}}$
+4. Set discriminant $\Delta = 0$ for $F_{N1}^2+F_{T1}^2 = f_{max}^2$, add ellipse extrema to $P_{\text{candidate}}$
+5. Add control $(u_1,u_2) = (\pm a_{max},\pm b_{max})$ to $P_{\text{candidate}}$
 
 */* Filter for admissibility */*
 
-6. Let $P_{\text{valid}} = \emptyset$
-7. **For** each $p \in P_{\text{candidate}}$:
-    * Compute exact forces $F_{N1}, F_{T1}$ using $\nu, \phi, p = (u_1, u_2)$
-    * **If** $F_{N1}^2 + F_{T1}^2 \leq f_{max}^2$:
+6. Let $P_{\text{valid}}=\emptyset$
+7. **For** $p \in P_{\text{candidate}}$:
+    * Compute exact forces $F_{N1},F_{T1}$ using $\nu,\phi$ and $(u_1,u_2)$
+    * **If** $F_{N1}^2+F_{T1}^2 \leq f_{max}^2$:
         * $P_{\text{valid}} \leftarrow p$
 
 */* Construct base convex hull */*
 
 8. Compute base polygon $V_{base}$ using convex hull of $P_{\text{valid}}$
-9. Let $N_{add} = N - |V_{base}|$
-10. Let $V_{\text{refine}} = V_{base}$
+9. Set $N_{add} = N-|V_{base}|$
+10. Set $V_{\text{refine}} = V_{base}$
 
 */* Adaptive edge refinement */*
 
-11. **While** $N_{add} > 0$:
-    * Compute Euclidean lengths of all connecting vertices of $V_{base}$
-    * Find the longest edge $E = (p_1, p_2)$ of $V_{base}$
+11. **While** $N_{add}>0$:
+    * Compute distances between adjacent vertices of $V_{base}$
+    * Find the longest distance $E = (p_1,p_2)$ of $V_{base}$
     * Compute centroid $c$ of $V_{base}$
-    * Compute intermediate point $m = p_1 + \frac{1}{2}(p_2 - p_1)$
+    * Compute edge intermediate point $m = p_1 + \frac{1}{2}(p_2-p_1)$
     * Define normalized ray direction from $c$ through $m$
     * Find intersection point $p_{\text{new}}$ with $\mathcal{FW}$ ellipse
-    * $V_{\text{refine}} \leftarrow p_{\text{new}}$
-    * $N_{add} = N - |V_{\text{refine}}|$
-
-*/* Final formulation */*
+    * $V_{\text{refine}}\leftarrow p_{\text{new}}$
+    * $N_{add} = N-|V_{\text{refine}}|$
 
 12. Compute final convex hull $V_{\text{refine}}$
-13. Extract edge equations to form matrix $A$ and vector $b$
 
-**Output:** Linear constraint matrix $A$ and vector $b$ such that $Au \leq b \subseteq \mathcal{FW}$.
+**Output:** Linear constraint matrix $A$ and vector $b$ s.t. $Au\leq b\subseteq \mathcal{FW}$.
 
 ---
 
