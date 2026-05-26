@@ -5,7 +5,7 @@ Code accompanying the paper: *Minimum Time Trajectories for a Car-Like Mobile Ro
 
 ## Overview
 
-This repository implements time-optimal trajectory planning for a car-like mobile robot subject to non-sliding (tire friction) constraints. The work addresses a fundamental challenge in autonomous vehicle motion planning: the admissible control set at each instant — defined by the nonlinear friction ellipse constraints on both front and rear wheels — has a complex, state-dependent shape that is expensive to enforce inside a real-time controller.
+This repository implements time-optimal trajectory planning for a car-like mobile robot subject to non-sliding (tire friction) constraints. The work addresses a fundamental challenge in autonomous vehicle motion planning: the admissible control set at each instant, defined by the nonlinear friction ellipse constraints on both front and rear wheels, has a complex, state-dependent shape that is expensive to enforce inside a real-time controller.
 
 The key contribution is an **analytical polygonal approximation** of this admissible control set. At each state (velocity `v`, steering angle `φ`), the exact boundary of the friction-constrained hodograph (the set of feasible accelerations in control space) is computed analytically and inscribed by a convex polygon with a user-specified number of faces. This polygon is then used as a linear constraint inside a Model Predictive Controller (MPC), replacing the nonlinear friction circles with a set of linear inequalities that can be solved efficiently by standard QP solvers.
 
