@@ -28,6 +28,9 @@ def solve_offline_poly_problem(S_start, S_target, N, L, X_ref, T_ref_guess, U_re
     opti.subject_to(X[1, N] == S_target[1])
     opti.subject_to(X[2:, N] == S_target[2:])
     
+    # Path constraint to force the DOWN (undershoot) branch and forbid the UP (overshoot) branch
+    opti.subject_to(X[1, :] <= 1.05)
+    
     dt = T / N
     
     # Physics constants

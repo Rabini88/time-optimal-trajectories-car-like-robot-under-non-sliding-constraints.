@@ -108,6 +108,10 @@ def solve_time_optimal_problem(S_start, S_target, N=500, L=1.0, phi_max=np.pi/2,
         opti.subject_to(opti.bounded(-b_max, u2, b_max))
         opti.subject_to(opti.bounded(-phi_max, phi, phi_max))
         opti.subject_to(opti.bounded(-v_max, v, v_max))
+        
+        # Force the exact solver into the DOWN branch by forbidding the UP overshoot
+        # The UP branch swings to Y ~ 1.8. The DOWN branch swings to Y ~ -0.7.
+        opti.subject_to(X[1, k] <= 1.05)
 
     # Warm Start (matching dynamic_car_time_optimal_casadi.py)
     opti.set_initial(T, T_guess)
@@ -971,6 +975,8 @@ def plot_mpc_vs_exact(t_ref, X_ref, U_ref, t_sim, X_sim, U_sim, t_sim_poly, X_si
         plt.show()
 
 def animate_2way_hodograph(t_sim, X_ref, X_sim_poly, U_ref, U_mpc_poly, L=1.0, max_faces=24, filename="compare_2way_hodograph.gif"):
+    import seaborn as sns
+    sns.set_theme(style="whitegrid", palette="muted", font_scale=1.2)
     print(f"Generating 2-Way Hodograph Animation: {filename}...")
     m, g, mu = 20.0, 9.81, 1.0
     rho = L / np.sqrt(3); c = (rho / L)**2
@@ -992,11 +998,15 @@ def animate_2way_hodograph(t_sim, X_ref, X_sim_poly, U_ref, U_mpc_poly, L=1.0, m
     X_com_ref_full = X_ref[0, :N_sim+1]
     Y_com_ref_full = X_ref[1, :N_sim+1]
 
-    # Dynamic axis limits to fit all trajectories
-    x_min = min(np.min(X_com_poly_full), np.min(X_com_ref_full)) - 1.0
-    x_max = max(np.max(X_com_poly_full), np.max(X_com_ref_full)) + 1.0
-    y_min = min(np.min(Y_com_poly_full), np.min(Y_com_ref_full)) - 1.0
-    y_max = max(np.max(Y_com_poly_full), np.max(Y_com_ref_full)) + 1.0
+    # Precompute rear axle paths
+    x_rear_ref_full = X_com_ref_full - L * np.cos(X_ref[2, :N_sim+1])
+    y_rear_ref_full = Y_com_ref_full - L * np.sin(X_ref[2, :N_sim+1])
+    x_rear_poly_full = X_com_poly_full - L * np.cos(X_sim_poly[2, :N_sim+1])
+    y_rear_poly_full = Y_com_poly_full - L * np.sin(X_sim_poly[2, :N_sim+1])
+
+    # Static axis limits
+    x_min, x_max = -0.05, 3.5
+    y_min, y_max = -1.0, 1.25
     
     num_frames = N_sim // 2
     
@@ -1018,15 +1028,29 @@ def animate_2way_hodograph(t_sim, X_ref, X_sim_poly, U_ref, U_mpc_poly, L=1.0, m
         u_poly = U_mpc_poly[:, min(k, U_mpc_poly.shape[1] - 1)]
         
         # --- AX1: Physical Trajectory ---
-        ax1.plot(X_com_ref_full, Y_com_ref_full, 'b-', alpha=0.2, label='Ref. Path')
-        ax1.plot(X_com_poly_full, Y_com_poly_full, 'g:', alpha=0.3, label='Poly MPC Path')
+        blue, green = "#1f77b4", "#2ca02c"
+        lw = 2
+        
+        # Draw rear axle trails as the main trajectories (thick, no alpha)
+        ax1.plot(x_rear_ref_full, y_rear_ref_full, color=blue, linewidth=lw, linestyle='-', label='Exact Rear Axle')
+        ax1.plot(x_rear_poly_full, y_rear_poly_full, color=green, linewidth=lw, linestyle='--', label='Poly Rear Axle')
+
+        # Draw CoM as thin, semi-transparent trails
+        ax1.plot(X_com_ref_full, Y_com_ref_full, color=blue, linewidth=lw-1, alpha=0.4, label='Exact CoM')
+        ax1.plot(X_com_poly_full, Y_com_poly_full, color=green, linewidth=lw-1, linestyle='--', alpha=0.4, label='Poly CoM')
+
+        # Draw Start and Target markers based on the reference path
+        ax1.plot(x_rear_ref_full[0], y_rear_ref_full[0], 'go', markersize=8)
+        ax1.plot(x_rear_ref_full[-1], y_rear_ref_full[-1], 'rx', markersize=10, markeredgewidth=2)
+        ax1.text(x_rear_ref_full[0], y_rear_ref_full[0] - 0.05, "start", ha="center", va="top", fontsize=13)
+        ax1.text(x_rear_ref_full[-1], y_rear_ref_full[-1] - 0.05, "target", ha="center", va="top", fontsize=13)
         
         # Draw car body for the Polygonal MPC state
         x_c, y_c, theta_c = X_sim_poly[0, k_poly], X_sim_poly[1, k_poly], X_sim_poly[2, k_poly]
-        x_rear = x_c - 0.5 * L * np.cos(theta_c)
-        y_rear = y_c - 0.5 * L * np.sin(theta_c)
-        x_front = x_c + 0.5 * L * np.cos(theta_c)
-        y_front = y_c + 0.5 * L * np.sin(theta_c)
+        x_rear = x_c - L * np.cos(theta_c)
+        y_rear = y_c - L * np.sin(theta_c)
+        x_front = x_c + L * np.cos(theta_c)
+        y_front = y_c + L * np.sin(theta_c)
         
         ax1.plot([x_rear, x_front], [y_rear, y_front], 'k-', linewidth=4, label='Car Body')
         ax1.plot(x_c, y_c, 'ko', markersize=6)
@@ -1051,16 +1075,16 @@ def animate_2way_hodograph(t_sim, X_ref, X_sim_poly, U_ref, U_mpc_poly, L=1.0, m
         # 3. The Refined Convex Hull Polygon
         refined_verts = get_refined_polygon_vertices(v_val, phi_val, L, max_faces=max_faces)
         if len(refined_verts) > 0:
-            poly_patch = plt.Polygon(refined_verts, closed=True, facecolor='cyan', edgecolor='blue', alpha=0.3, linewidth=2, label='Refined Polygon Admissible Zone')
+            poly_patch = plt.Polygon(refined_verts, closed=True, facecolor='cyan', edgecolor='blue', alpha=0.3, linewidth=2, label='Approximated admissible area')
             ax2.add_patch(poly_patch)
             
         # 4. The Controls
-        ax2.plot(u_ref[0], u_ref[1], 'b*', markersize=14, label='Offline Exact')
-        ax2.plot(u_poly[0], u_poly[1], 'gd', markersize=10, label='MPC Poly')
+        ax2.plot(u_ref[0], u_ref[1], 'b*', markersize=14, label='Exact')
+        ax2.plot(u_poly[0], u_poly[1], 'go', markersize=10, label='Approximate')
 
         ax2.set_xlim(-6, 6)
         ax2.set_ylim(-6, 6)
-        ax2.set_title(f"Hodograph (v = {v_val:.2f} m/s | phi = {phi_val:.2f} rad)")
+        ax2.set_title(f"Hodograph N={max_faces} (v = {v_val:.2f} m/s | phi = {phi_val:.2f} rad)")
         ax2.set_xlabel('$u_1$ (Linear Accel) [m/s²]')
         ax2.set_ylabel('$u_2$ (Steering Rate) [rad/s]')
         ax2.legend(loc='upper right', fontsize=8)
@@ -1070,7 +1094,7 @@ def animate_2way_hodograph(t_sim, X_ref, X_sim_poly, U_ref, U_mpc_poly, L=1.0, m
     ani.save(filename, writer='pillow', fps=15)
     print(f"Animation saved to {filename}")
 if __name__ == "__main__":
-    num_approx_points = 12  # User specified budget
+    num_approx_points = 8  # User specified budget
     L_val = 1.0
     N_total = 500
     #u turn 
@@ -1089,165 +1113,51 @@ if __name__ == "__main__":
     # 1. Offline Reference
     T_ref, X_ref, U_ref, t_grid, solver_time = solve_time_optimal_problem(S_start, S_target, N=N_total, L=L_val)
     
-    # 2. Setup MPC
-    print("--- Starting Closed-Loop MPC Simulation ---")
-    N_mpc = 15
-    dt_ref = T_ref / N_total
-    opti_mpc, x_curr_p, x_targ_p, X_mpc, U_mpc = setup_mpc(dt_val=dt_ref, N_mpc=N_mpc, L=L_val)
-    F_rk4 = get_rk4_function(L_val)
     
-    # --- Extended Simulation ---
-    max_sim_steps = N_total + 200 # Allow for extra time to converge
-    
-    X_sim = np.zeros((5, max_sim_steps + 1))
-    X_sim[:, 0] = X_ref[:, 0]
-    U_sim = np.zeros((2, max_sim_steps))
-    t_sim = np.zeros(max_sim_steps + 1)
-    current_state = X_ref[:, 0]
-    
-    # 3. Execution Loop with Convergence Check
-    k = 0
-    while k < max_sim_steps:
-        # Check for convergence via Finish Line crossing
-        dx = current_state[0] - S_target[0]
-        dy = current_state[1] - S_target[1]
-        theta_t = S_target[2]
-        
-        cross_proj = dx * np.cos(theta_t) + dy * np.sin(theta_t)
-        dist_to_target = np.linalg.norm([dx, dy])
-        
-        if cross_proj >= 0 and dist_to_target < 2.0 and k > N_total * 0.8:
-            print(f"Exact MPC crossed the finish line at step {k} (distance from target center: {dist_to_target:.3f}m)")
-            break
-
-        # Determine target state for MPC
-        if k + N_mpc <= N_total:
-            target_state = X_ref[:, k + N_mpc]
-        else:
-            target_state = S_target # Use final target when reference runs out
-        
-        opti_mpc.set_value(x_curr_p, current_state)
-        opti_mpc.set_value(x_targ_p, target_state)
-        
-        # Warm start only when reference is available
-        if k + N_mpc <= N_total:
-            opti_mpc.set_initial(X_mpc, X_ref[:, k:k+N_mpc+1])
-            opti_mpc.set_initial(U_mpc, U_ref[:, k:k+N_mpc])
-        
-        try:
-            sol = opti_mpc.solve()
-            u_opt = sol.value(U_mpc[:, 0]) 
-        except RuntimeError:
-            print(f"MPC Failed at step {k}, using fallback controls.")
-            u_opt = U_ref[:, k] if k < U_ref.shape[1] else np.zeros(2)
-            
-        U_sim[:, k] = u_opt
-        t_sim[k+1] = t_sim[k] + dt_ref
-        current_state = np.array(F_rk4(current_state, u_opt, dt_ref)).flatten()
-        X_sim[:, k+1] = current_state
-        
-        if k % 50 == 0:
-            print(f"Simulated step {k}/{max_sim_steps}")
-        
-        k += 1
-    
-    # Trim arrays to the actual number of steps taken
-    sim_len_exact = k
-    X_sim = X_sim[:, :sim_len_exact+1]
-    U_sim = U_sim[:, :sim_len_exact]
-    t_sim = t_sim[:sim_len_exact+1]
-
-    # 4. Setup Polygonal MPC
-    
-    print("--- Starting Closed-Loop MPC Simulation (Polygonal) ---")
-    opti_poly, x_curr_p, x_targ_p, A_p, b_p, X_p, U_p = setup_mpc_polygonal(dt_val=dt_ref, N_mpc=N_mpc, L=L_val, max_faces=num_approx_points)
-    
-    X_sim_poly = np.zeros((5, max_sim_steps + 1))
-    X_sim_poly[:, 0] = X_ref[:, 0]
-    U_sim_poly = np.zeros((2, max_sim_steps))
-    t_sim_poly = np.zeros(max_sim_steps + 1)
-    current_state_poly = X_ref[:, 0]
-    
-    k = 0
-    while k < max_sim_steps:
-        # Check for convergence via Finish Line crossing
-        dx_poly = current_state_poly[0] - S_target[0]
-        dy_poly = current_state_poly[1] - S_target[1]
-        theta_t = S_target[2]
-        
-        cross_proj_poly = dx_poly * np.cos(theta_t) + dy_poly * np.sin(theta_t)
-        dist_to_target_poly = np.linalg.norm([dx_poly, dy_poly])
-        
-        if cross_proj_poly >= 0 and dist_to_target_poly < 2.0 and k > N_total * 0.8:
-            print(f"Polygonal MPC crossed the finish line at step {k} (distance from target center: {dist_to_target_poly:.3f}m)")
-            break
-
-        # Determine target state and exact reference control
-        if k + N_mpc <= N_total:
-            target_state = X_ref[:, k + N_mpc]
-            u_ref_current = U_ref[:, k]
-        else:
-            target_state = S_target
-            u_ref_current = np.array([0.0, 0.0]) # Parked
-        
-        opti_poly.set_value(x_curr_p, current_state_poly)
-        opti_poly.set_value(x_targ_p, target_state)
-        
-        # Generate constraints, injecting the reference control in case of singularity
-        A_mat, b_vec = get_polygonal_constraints(
-            current_state_poly[4], 
-            current_state_poly[3], 
-            L_val, 
-            max_faces=num_approx_points, 
-            u_ref_k=u_ref_current
+    # 2. Setup Offline Polygonal Solver (Replacing MPC per user request)
+    print(f"--- Solving Offline Polygonal Problem ({num_approx_points} points) ---")
+    from offline_poly_analysis import solve_offline_poly_problem
+    try:
+        T_poly, X_poly, U_poly, t_grid_poly = solve_offline_poly_problem(
+            S_start, S_target, N_total, L_val, X_ref, T_ref, U_ref, num_approx_points
         )
-        opti_poly.set_value(A_p, A_mat)
-        opti_poly.set_value(b_p, b_vec)
-        
-        # Warm start
-        if k + N_mpc <= N_total:
-            opti_poly.set_initial(X_p, X_ref[:, k:k+N_mpc+1])
-            opti_poly.set_initial(U_p, U_ref[:, k:k+N_mpc])
-        
-        try:
-            sol = opti_poly.solve()
-            u_opt = sol.value(U_p[:, 0]) 
-        except RuntimeError:
-            print(f"Poly MPC Failed at step {k}, using fallback controls.")
-            u_opt = U_ref[:, k] if k < U_ref.shape[1] else np.zeros(2)
-            
-        U_sim_poly[:, k] = u_opt
-        t_sim_poly[k+1] = t_sim_poly[k] + dt_ref
-        current_state_poly = np.array(F_rk4(current_state_poly, u_opt, dt_ref)).flatten()
-        X_sim_poly[:, k+1] = current_state_poly
-        
-        if k % 50 == 0:
-            print(f"Simulated Poly step {k}/{max_sim_steps}")
-        
-        k += 1
+    except Exception as e:
+        print(f"Offline Poly Solver failed: {e}")
+        exit()
 
-    # Trim arrays
-    sim_len_poly = k
-    X_sim_poly = X_sim_poly[:, :sim_len_poly+1]
-    U_sim_poly = U_sim_poly[:, :sim_len_poly]
-    t_sim_poly = t_sim_poly[:sim_len_poly+1]
+    y_exact = X_ref[1, :]
+    y_poly = X_poly[1, :]
+    print(f"Exact Y range: [{np.min(y_exact):.3f}, {np.max(y_exact):.3f}]")
+    print(f"Poly Y range: [{np.min(y_poly):.3f}, {np.max(y_poly):.3f}]")
+    
+    exact_is_down = np.min(y_exact) < -0.1
+    poly_is_down = np.min(y_poly) < -0.1
+    exact_is_up = np.max(y_exact) > 1.1
+    poly_is_up = np.max(y_poly) > 1.1
 
-    # 5. Plot Detailed Comparison
-    plot_mpc_vs_exact(
-        t_grid, X_ref, U_ref, t_sim, X_sim, U_sim, t_sim_poly, X_sim_poly, U_sim_poly, 
-        L=L_val, 
-        save_path=f"mpc_vs_exact_8_subplots_N{num_approx_points}.png", 
-        show_plot=True
-    )
+    if exact_is_down and poly_is_down:
+        print("=> SUCCESS: Both solutions swing DOWN (negative Y).")
+    elif exact_is_up and poly_is_up:
+        print("=> SUCCESS: Both solutions swing UP (positive Y > target).")
+    else:
+        print("=> MISMATCH: They are going in different directions!")
+
+    # 5. Plot Detailed Comparison (Commented out per request)
+    # plot_mpc_vs_exact(
+    #     t_grid, X_ref, U_ref, t_sim, X_sim, U_sim, t_sim_poly, X_sim_poly, U_sim_poly, 
+    #     L=L_val, 
+    #     save_path=f"mpc_vs_exact_8_subplots_N{num_approx_points}.png", 
+    #     show_plot=True
+    # )
 
     # 6. Generate Final 2-Way Animation
     # Pass the full arrays, let the animation function handle the max length and clamping
     animate_2way_hodograph(
-        t_sim_poly, # Pass Poly time array as the master clock
+        t_grid_poly, # Pass Poly time array as the master clock
         X_ref, 
-        X_sim_poly, 
+        X_poly, 
         U_ref, 
-        U_sim_poly, 
+        U_poly, 
         L=L_val, 
         max_faces=num_approx_points,
         filename=f"compare_2way_hodograph_N{num_approx_points}.gif"
