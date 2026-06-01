@@ -2,6 +2,7 @@ import casadi as ca
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from matplotlib.patches import Rectangle
 from scipy.spatial import ConvexHull
 import scipy.optimize as opt
 
@@ -774,6 +775,25 @@ def animate_hodograph(t_grid, X_opt, U_opt, L=1.0, max_faces=24, filename="exact
         ax1.plot(x_c, y_c, 'bo', markersize=6) 
         ax1.plot(x_rear, y_rear, 'ko', markersize=6) 
         
+        # Draw wheels as rectangular patches
+        w_len = 0.3 * L
+        w_width = 0.1 * L
+        
+        # Rear Wheel (aligned with car heading theta_c)
+        x_bl_rear = x_rear - (w_len / 2.0) * np.cos(theta_c) + (w_width / 2.0) * np.sin(theta_c)
+        y_bl_rear = y_rear - (w_len / 2.0) * np.sin(theta_c) - (w_width / 2.0) * np.cos(theta_c)
+        rear_wheel = Rectangle((x_bl_rear, y_bl_rear), w_len, w_width, angle=np.degrees(theta_c),
+                               facecolor='black', edgecolor='black', zorder=5)
+        ax1.add_patch(rear_wheel)
+        
+        # Front Wheel (aligned with steered heading theta_c + phi_val)
+        steer_heading = theta_c + phi_val
+        x_bl_front = x_front - (w_len / 2.0) * np.cos(steer_heading) + (w_width / 2.0) * np.sin(steer_heading)
+        y_bl_front = y_front - (w_len / 2.0) * np.sin(steer_heading) - (w_width / 2.0) * np.cos(steer_heading)
+        front_wheel = Rectangle((x_bl_front, y_bl_front), w_len, w_width, angle=np.degrees(steer_heading),
+                                facecolor='black', edgecolor='black', zorder=5)
+        ax1.add_patch(front_wheel) 
+        
         ax1.set_xlim(x_min, x_max)
         ax1.set_ylim(y_min, y_max)
         ax1.set_aspect('equal')
@@ -1006,12 +1026,40 @@ def animate_2way_hodograph(t_sim, X_ref, X_sim_poly, U_ref, U_mpc_poly, L=1.0, m
 
     # Static axis limits
     x_min, x_max = -0.05, 3.5
-    y_min, y_max = -1.0, 1.25
+    y_min, y_max = -1.5, 1.25
     
     num_frames = N_sim // 2
+    num_title_frames = 45
     
     def update(frame_idx):
-        k = frame_idx * 2  # Multiply by 2 to achieve the frame skipping
+        if frame_idx < num_title_frames:
+            ax1.clear()
+            ax2.clear()
+            fig.patch.set_facecolor('black')
+            ax1.set_facecolor('black')
+            ax2.set_facecolor('black')
+            ax1.axis('off')
+            ax2.axis('off')
+            fig.suptitle(
+                "Car-Like Robot\nExact & Approximate Time-Optimal\nParking Maneuver",
+                color='white',
+                fontsize=26,
+                y=0.5,
+                va='center',
+                ha='center',
+                fontweight='bold'
+            )
+            return
+
+        # Restore figure and axes state for simulation frames
+        fig.patch.set_facecolor('white')
+        ax1.set_facecolor('white')
+        ax2.set_facecolor('white')
+        ax1.axis('on')
+        ax2.axis('on')
+        fig.suptitle("")  # Clear title card text
+
+        k = (frame_idx - num_title_frames) * 2  # Adjust index for title frames
         ax1.clear()
         ax2.clear()
         
@@ -1031,13 +1079,13 @@ def animate_2way_hodograph(t_sim, X_ref, X_sim_poly, U_ref, U_mpc_poly, L=1.0, m
         blue, green = "#1f77b4", "#2ca02c"
         lw = 2
         
-        # Draw rear axle trails as the main trajectories (thick, no alpha)
-        ax1.plot(x_rear_ref_full, y_rear_ref_full, color=blue, linewidth=lw, linestyle='-', label='Exact Rear Axle')
-        ax1.plot(x_rear_poly_full, y_rear_poly_full, color=green, linewidth=lw, linestyle='--', label='Poly Rear Axle')
+        # Draw rear axle trails as the main trajectories (thick, no alpha) - green
+        line_rear_ref, = ax1.plot(x_rear_ref_full, y_rear_ref_full, color=green, linewidth=lw, linestyle='-', label='Rear Axle')
+        ax1.plot(x_rear_poly_full, y_rear_poly_full, color=green, linewidth=lw, linestyle='--')
 
-        # Draw CoM as thin, semi-transparent trails
-        ax1.plot(X_com_ref_full, Y_com_ref_full, color=blue, linewidth=lw-1, alpha=0.4, label='Exact CoM')
-        ax1.plot(X_com_poly_full, Y_com_poly_full, color=green, linewidth=lw-1, linestyle='--', alpha=0.4, label='Poly CoM')
+        # Draw CoM as thin, semi-transparent trails - blue
+        line_com_ref, = ax1.plot(X_com_ref_full, Y_com_ref_full, color=blue, linewidth=lw-1, alpha=0.8, label='C.O.M')
+        ax1.plot(X_com_poly_full, Y_com_poly_full, color=blue, linewidth=lw-1, linestyle='--', alpha=0.8)
 
         # Draw Start and Target markers based on the reference path
         ax1.plot(x_rear_ref_full[0], y_rear_ref_full[0], 'go', markersize=8)
@@ -1054,9 +1102,29 @@ def animate_2way_hodograph(t_sim, X_ref, X_sim_poly, U_ref, U_mpc_poly, L=1.0, m
         
         ax1.plot([x_rear, x_front], [y_rear, y_front], 'k-', linewidth=4, label='Car Body')
         ax1.plot(x_c, y_c, 'ko', markersize=6)
+
+        # Draw wheels as rectangular patches
+        w_len = 0.3 * L
+        w_width = 0.1 * L
+        
+        # Rear Wheel (aligned with car heading theta_c)
+        x_bl_rear = x_rear - (w_len / 2.0) * np.cos(theta_c) + (w_width / 2.0) * np.sin(theta_c)
+        y_bl_rear = y_rear - (w_len / 2.0) * np.sin(theta_c) - (w_width / 2.0) * np.cos(theta_c)
+        rear_wheel = Rectangle((x_bl_rear, y_bl_rear), w_len, w_width, angle=np.degrees(theta_c),
+                               facecolor='black', edgecolor='black', zorder=5)
+        ax1.add_patch(rear_wheel)
+        
+        # Front Wheel (aligned with steered heading theta_c + phi_val)
+        steer_heading = theta_c + phi_val
+        x_bl_front = x_front - (w_len / 2.0) * np.cos(steer_heading) + (w_width / 2.0) * np.sin(steer_heading)
+        y_bl_front = y_front - (w_len / 2.0) * np.sin(steer_heading) - (w_width / 2.0) * np.cos(steer_heading)
+        front_wheel = Rectangle((x_bl_front, y_bl_front), w_len, w_width, angle=np.degrees(steer_heading),
+                                facecolor='black', edgecolor='black', zorder=5)
+        ax1.add_patch(front_wheel)
         ax1.set_xlim(x_min, x_max); ax1.set_ylim(y_min, y_max)
         ax1.set_aspect('equal')
-        ax1.set_title(f"Vehicle Trajectory (t = {t_val:.2f} s)")
+        ax1.set_title(f"Car-Like Robot Trajectory (t = {t_val:.2f} s)\nRear-Wheels (green), C.O.M (blue)")
+        ax1.legend(handles=[line_rear_ref, line_com_ref], loc='upper right')
         ax1.grid(True)
         
         # --- AX2: Hodograph ---
@@ -1084,13 +1152,14 @@ def animate_2way_hodograph(t_sim, X_ref, X_sim_poly, U_ref, U_mpc_poly, L=1.0, m
 
         ax2.set_xlim(-6, 6)
         ax2.set_ylim(-6, 6)
-        ax2.set_title(f"Hodograph N={max_faces} (v = {v_val:.2f} m/s | phi = {phi_val:.2f} rad)")
+        ax2.set_title(f"Approximate Hodograph N={max_faces} Points\n(v = {v_val:.2f} m/s | phi = {phi_val:.2f} rad)")
         ax2.set_xlabel('$u_1$ (Linear Accel) [m/s²]')
         ax2.set_ylabel('$u_2$ (Steering Rate) [rad/s]')
         ax2.legend(loc='upper right', fontsize=8)
         ax2.grid(True)
 
-    ani = animation.FuncAnimation(fig, update, frames=num_frames, blit=False)
+    total_frames = num_frames + num_title_frames
+    ani = animation.FuncAnimation(fig, update, frames=total_frames, blit=False)
     ani.save(filename, writer='pillow', fps=15)
     print(f"Animation saved to {filename}")
 if __name__ == "__main__":
@@ -1160,5 +1229,5 @@ if __name__ == "__main__":
         U_poly, 
         L=L_val, 
         max_faces=num_approx_points,
-        filename=f"compare_2way_hodograph_N{num_approx_points}.gif"
+        filename=f"results/parallel_park/compare_2way_hodograph_N{num_approx_points}.gif"
     )
