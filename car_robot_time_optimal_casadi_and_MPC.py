@@ -1029,7 +1029,7 @@ def animate_2way_hodograph(t_sim, X_ref, X_sim_poly, U_ref, U_mpc_poly, L=1.0, m
     y_min, y_max = -1.5, 1.25
     
     num_frames = N_sim // 2
-    num_title_frames = 45
+    num_title_frames = 90
     
     def update(frame_idx):
         if frame_idx < num_title_frames:
@@ -1041,7 +1041,7 @@ def animate_2way_hodograph(t_sim, X_ref, X_sim_poly, U_ref, U_mpc_poly, L=1.0, m
             ax1.axis('off')
             ax2.axis('off')
             fig.suptitle(
-                "Car-Like Robot\nExact & Approximate Time-Optimal\nParking Maneuver",
+                "Car-Like Robot\nExact and Approximate\nTime Optimal\nParallel Parking Maneuver",
                 color='white',
                 fontsize=26,
                 y=0.5,
@@ -1124,7 +1124,11 @@ def animate_2way_hodograph(t_sim, X_ref, X_sim_poly, U_ref, U_mpc_poly, L=1.0, m
         ax1.set_xlim(x_min, x_max); ax1.set_ylim(y_min, y_max)
         ax1.set_aspect('equal')
         ax1.set_title(f"Car-Like Robot Trajectory (t = {t_val:.2f} s)\nRear-Wheels (green), C.O.M (blue)")
-        ax1.legend(handles=[line_rear_ref, line_com_ref], loc='upper right')
+        
+        line_exact, = ax1.plot([], [], color='black', linestyle='-', linewidth=lw, label='Exact Path')
+        line_approx, = ax1.plot([], [], color='black', linestyle='--', linewidth=lw, label='Approximate Path')
+        ax1.legend(handles=[line_rear_ref, line_com_ref, line_exact, line_approx], loc='lower left')
+        
         ax1.grid(True)
         
         # --- AX2: Hodograph ---
@@ -1155,7 +1159,7 @@ def animate_2way_hodograph(t_sim, X_ref, X_sim_poly, U_ref, U_mpc_poly, L=1.0, m
         ax2.set_title(f"Approximate Hodograph N={max_faces} Points\n(v = {v_val:.2f} m/s | phi = {phi_val:.2f} rad)")
         ax2.set_xlabel('$u_1$ (Linear Accel) [m/s²]')
         ax2.set_ylabel('$u_2$ (Steering Rate) [rad/s]')
-        ax2.legend(loc='upper right', fontsize=8)
+        ax2.legend(loc='upper right')
         ax2.grid(True)
 
     total_frames = num_frames + num_title_frames

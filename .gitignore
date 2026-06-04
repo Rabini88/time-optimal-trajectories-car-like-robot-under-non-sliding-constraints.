@@ -18,3 +18,6 @@ __pycache__/
 # OS files
 .DS_Store
 Thumbs.db
+
+#tex paper draft
+CAR_Robot_Optimal_Trajectories with Physical Constraints.tex
