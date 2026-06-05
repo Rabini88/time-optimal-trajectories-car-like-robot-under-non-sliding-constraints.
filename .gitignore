@@ -20,4 +20,8 @@ __pycache__/
 Thumbs.db
 
 #tex paper draft
-CAR_Robot_Optimal_Trajectories with Physical Constraints.tex
+CAR_Robot_Optimal_Trajectories_with_Physical_Constraints_anonymous.tex
+
+results/parallel_park/README.txt
+
+keywords_list.txt
