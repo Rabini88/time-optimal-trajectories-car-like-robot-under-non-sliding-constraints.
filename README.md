@@ -1,7 +1,7 @@
 # Time-Optimal Trajectory Planning for a Car-Like Mobile Robot
 
 Code accompanying the paper: *Minimum Time Trajectories for a Car-Like Mobile Robot Moving with Rigid Wheels Under Non-Sliding Constraints*.  
-**Authors:** J. Z. Ben-Asher, L. A. Ravina, and E. D. Rimon
+**Authors:** E. D. Rimon, J. Z. Ben-Asher and L. A. Ravina 
 
 ## Overview
 
